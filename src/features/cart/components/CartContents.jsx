@@ -5,11 +5,13 @@ import {toast} from 'sonner';
 import {removeFromCart, updateCartQuantity} from '@/features/authentication/actions';
 import {useCartStore} from '@/store/cartStore';
 import {Card} from '@/components/ui/card';
+import {createTransaction} from "@/lib/data"; // Import the createTransaction function
 import {Button} from '@/components/ui/button';
 import {Minus, Plus, Trash2} from 'lucide-react';
 import {Checkbox} from '@/components/ui/checkbox';
 import {RadioGroup, RadioGroupItem} from "@/components/ui/radio-group";
 import {Label} from '@/components/ui/label';
+import {useRouter} from 'next/navigation'; // Import useRouter
 
 function QuantityControl({item, onUpdate, isPending}) {
     const [optimisticQuantity, setOptimisticQuantity] = useState(item.quantity);
@@ -38,12 +40,35 @@ function QuantityControl({item, onUpdate, isPending}) {
     );
 }
 
+function getTokenFromCookie() {
+    if (typeof document === "undefined") return null;
+
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+        const trimmedCookie = cookie.trim();
+        if (!trimmedCookie) continue;
+
+        const [name, value] = trimmedCookie.split('=');
+
+        if (name === 'client_token' && value && value !== 'undefined') {
+            try {
+                const decoded = decodeURIComponent(value);
+                return decoded;
+            } catch (e) {
+                return value;
+            }
+        }
+    }
+    return null;
+}
+
 export default function CartContents({initialItems, paymentMethods}) {
     const [items, setItems] = useState(initialItems);
     const [selectedIds, setSelectedIds] = useState(() => new Set(initialItems.map(item => item.id)));
     const [selectedPayment, setSelectedPayment] = useState(paymentMethods?.[0]?.id || null);
     const [isPending, startTransition] = useTransition();
     const setCart = useCartStore((state) => state.setCart);
+    const router = useRouter(); // Initialize router
 
     useEffect(() => {
         setCart(items);
@@ -77,9 +102,65 @@ export default function CartContents({initialItems, paymentMethods}) {
         });
     };
 
-    const handleCheckout = () => {
-        toast.info("Fitur pembayaran akan segera hadir!");
-    }
+    const handleCheckout = async () => {
+        if (!selectedPayment || selectedItems.length === 0) {
+            toast.error("Pilih metode pembayaran dan item yang akan dibeli");
+            return;
+        }
+
+        startTransition(async () => {
+            const token = getTokenFromCookie();
+            if (!token) {
+                toast.error("Sesi Anda telah berakhir. Silakan login kembali.");
+                router.push('/auth/login?callbackUrl=/cart');
+                return;
+            }
+
+            try {
+                // Enhanced payload with booking details
+                const payload = {
+                    cartIds: Array.from(selectedIds),
+                    paymentMethodId: selectedPayment,
+                    // Add booking details for each cart item
+                    cartItems: selectedItems.map(item => ({
+                        cartId: item.id,
+                        activityId: item.activity.id,
+                        quantity: item.quantity,
+                        bookingDate: item.bookingDate, // Make sure this exists
+                        guestCount: item.guestCount || item.quantity,
+                        price: item.activity.price_discount,
+                        activityTitle: item.activity.title,
+                        activityImageUrl: item.activity.imageUrls[0],
+                        city: item.activity.city,
+                        province: item.activity.province
+                    })),
+                    totalPrice: subtotal,
+                    totalItems: totalSelectedItems
+                };
+
+                console.log('Checkout payload:', payload); // Debug log
+
+                const result = await createTransaction(payload, token);
+
+                if (result.status === 'success') {
+                    toast.success(result.message || "Transaksi Anda sedang diproses!");
+                    router.push(`/transactions`);
+
+                    // Clean up cart
+                    setItems(prevItems =>
+                        prevItems.filter(item => !selectedIds.has(item.id))
+                    );
+                    setSelectedIds(new Set());
+                } else {
+                    toast.error(result.message || "Gagal membuat transaksi.");
+                }
+            } catch (error) {
+                console.error('Checkout process error:', error);
+                toast.error("Terjadi kesalahan: " + error.message);
+            }
+        });
+    };
+
 
     const selectedItems = useMemo(() => items.filter(item => selectedIds.has(item.id)), [items, selectedIds]);
     const subtotal = useMemo(() => selectedItems.reduce((acc, item) => acc + (item.activity.price_discount * item.quantity), 0), [selectedItems]);
@@ -150,7 +231,7 @@ export default function CartContents({initialItems, paymentMethods}) {
                         <span>Total</span>
                         <span>Rp {new Intl.NumberFormat('id-ID').format(subtotal)}</span>
                     </div>
-                    <Button size="lg" className="w-full" onClick={handleCheckout} disabled={!canCheckout || isPending}>Lanjutkan ke Pembayaran</Button>
+                    <Button size="lg" className="w-full" onClick={handleCheckout} disabled={!canCheckout || isPending}>Bayar Sekarang</Button>
                 </Card>
             </div>
         </div>

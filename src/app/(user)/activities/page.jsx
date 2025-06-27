@@ -1,46 +1,62 @@
-import Link from 'next/link';
-import {cookies} from 'next/headers';
-import {Button} from '@/components/ui/button';
-import {ShoppingCart} from 'lucide-react';
-import {getCart, getPaymentMethods} from '@/lib/data';
-import CartContents from '@/features/cart/components/CartContents';
+import Link from "next/link";
+import {getAllActivities} from "@/lib/data";
+import PageHeader from "@/components/ui/PageHeader";
+import {Button} from "@/components/ui/button";
+import {Card, CardContent} from "@/components/ui/card";
+import {MapPin, Star} from "lucide-react";
 
-export default async function UserCartPage() {
-    const token = cookies().get('token')?.value;
-
-    const [cartData, paymentMethodsData] = token ? await Promise.all([
-        getCart(token),
-        getPaymentMethods(token)
-    ]) : [null, null];
-
-    const cartItems = cartData?.data || [];
-    const paymentMethods = paymentMethodsData?.data || [];
+export default async function ActivitiesPage() {
+    const activitiesData = await getAllActivities();
+    const activities = activitiesData?.data || [];
 
     return (
-        <div className="bg-slate-50 min-h-screen">
+        <>
+            <PageHeader
+                title="Semua Aktivitas"
+                description="Temukan petualangan seru dari berbagai destinasi pilihan."
+            />
             <div className="container mx-auto px-4 md:px-6 py-8">
-                <div className="mb-6">
-                    <h1 className="text-3xl font-bold text-slate-800">Keranjang Belanja</h1>
-                    <p className="text-slate-500 mt-1">Periksa kembali pesanan Anda sebelum melanjutkan.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {activities.map((activity) => (
+                        <Card key={activity.id} className="overflow-hidden group">
+                            <div className="relative">
+                                <img
+                                    src={activity.imageUrls[0]}
+                                    alt={activity.title}
+                                    className="w-full h-56 object-cover transition-transform duration-300 group-hover:scale-105"
+                                />
+                                <div
+                                    className="absolute top-2 right-2 bg-white/80 backdrop-blur-sm text-slate-800 px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                                    <Star className="h-3 w-3 text-amber-500 fill-amber-500"/>
+                                    {activity.rating}
+                                </div>
+                            </div>
+                            <CardContent className="p-4">
+                                <h3 className="font-bold text-lg truncate text-slate-800">
+                                    {activity.title}
+                                </h3>
+                                <p className="text-sm text-slate-500 flex items-center gap-1 mt-1">
+                                    <MapPin className="h-4 w-4"/>
+                                    {activity.city}, {activity.province}
+                                </p>
+                                <div className="mt-4 flex justify-between items-center">
+                                    <div>
+                                        <p className="text-xs text-slate-500">Mulai dari</p>
+                                        <p className="font-bold text-sky-600">
+                                            Rp {new Intl.NumberFormat("id-ID").format(activity.price)}
+                                        </p>
+                                    </div>
+                                    <Button asChild size="sm">
+                                        <Link href={`/activities/${activity.id}`}>
+                                            Lihat Detail
+                                        </Link>
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
                 </div>
-
-                {cartItems.length === 0 ? (
-                    <div className="text-center border-2 border-dashed border-slate-300 bg-white p-12 rounded-lg">
-                        <ShoppingCart className="mx-auto h-16 w-16 text-slate-300"/>
-                        <h2 className="mt-4 text-2xl font-bold text-slate-700">
-                            Keranjang Anda Kosong
-                        </h2>
-                        <p className="mt-2 text-slate-500">
-                            Sepertinya Anda belum menambahkan aktivitas apapun.
-                        </p>
-                        <Button asChild className="mt-6">
-                            <Link href="/activities">Cari Aktivitas Sekarang</Link>
-                        </Button>
-                    </div>
-                ) : (
-                    <CartContents initialItems={cartItems} paymentMethods={paymentMethods}/>
-                )}
             </div>
-        </div>
+        </>
     );
 }

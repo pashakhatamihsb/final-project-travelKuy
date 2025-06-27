@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import {cookies} from "next/headers";
-import {Plane} from "lucide-react";
+import {LogOut, Plane, User} from "lucide-react"; // Ditambahkan User dan LogOut
 import {Button} from "@/components/ui/button";
 import {logout} from "@/features/authentication/actions";
 import SearchModal from "@/features/search/components/SearchModal";
@@ -10,10 +10,12 @@ import {getAllActivities} from "@/lib/data";
 import NavigationLinks from "@/components/ui/NavigationLinks";
 import MobileMenu from "./MobileMenu";
 import CartIcon from "./CartIcon";
+// Impor baru untuk Popover dan Avatar
+import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover";
+import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
 
 export default async function Navbar() {
-    // [FIX] cookies() sekarang adalah fungsi async dan HARUS di-await
-    const cookieStore = await cookies();
+    const cookieStore = cookies();
     const token = cookieStore.get("token")?.value;
     const userCookie = cookieStore.get("user")?.value;
 
@@ -56,20 +58,50 @@ export default async function Navbar() {
 
                 <div className="flex items-center gap-2 md:gap-4">
                     <SearchModal activities={activities}/>
-                    {/* Pass authentication status to CartIcon */}
                     <CartIcon isAuthenticated={isLoggedIn}/>
                     <div className="hidden md:block h-6 border-l"></div>
+
+                    {/* BLOK INI DIUBAH MENJADI POPOVER/DROPDOWN */}
                     {isLoggedIn && user ? (
-                        <div className="flex items-center gap-2">
-              <span className="hidden sm:inline text-sm font-medium text-gray-700">
-                Halo, {user.name || "Pengguna"}
-              </span>
-                            <form action={logout}>
-                                <Button variant="outline" size="sm">
-                                    Logout
-                                </Button>
-                            </form>
-                        </div>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <button className="flex items-center gap-3 rounded-full p-1 pr-3 transition-colors hover:bg-gray-100">
+                                    <Avatar className="h-8 w-8 border">
+                                        <AvatarImage src={user.profilePictureUrl} alt={user.name || 'User'}/>
+                                        <AvatarFallback>
+                                            {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <span className="hidden sm:inline text-sm font-medium text-gray-700">
+                                        Halo, {user.name || "Pengguna"}
+                                    </span>
+                                </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-56" align="end">
+                                <div className="flex flex-col gap-1 p-1">
+                                    <div className="border-b px-3 py-2">
+                                        <p className="font-semibold">{user.name}</p>
+                                        <p className="text-xs text-muted-foreground">{user.email}</p>
+                                    </div>
+                                    <Link
+                                        href="/profile"
+                                        className="flex items-center gap-2 rounded-md p-2 text-sm transition-colors hover:bg-accent"
+                                    >
+                                        <User className="h-4 w-4"/>
+                                        <span>Lihat Profil</span>
+                                    </Link>
+                                    <form action={logout} className="w-full">
+                                        <button
+                                            type="submit"
+                                            className="flex w-full items-center gap-2 rounded-md p-2 text-sm text-destructive transition-colors hover:bg-destructive/10"
+                                        >
+                                            <LogOut className="h-4 w-4"/>
+                                            <span>Logout</span>
+                                        </button>
+                                    </form>
+                                </div>
+                            </PopoverContent>
+                        </Popover>
                     ) : (
                         <div className="hidden sm:flex items-center gap-2">
                             <Link href="/auth/login">

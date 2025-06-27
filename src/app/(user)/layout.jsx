@@ -3,14 +3,28 @@ import Navbar from '@/components/ui/navbar';
 import Footer from '@/components/ui/footer';
 import {getCart} from '@/lib/data';
 import CartInitializer from '@/components/providers/CartInitializer';
-import {Toaster} from "@/components/ui/sonner"; // Import Toaster
+import {Toaster} from "@/components/ui/sonner";
 
 export default async function UserLayout({children}) {
-    // [FIX] cookies() harus di-await.
-    const cookieStore = await cookies();
+    const cookieStore = cookies();
     const token = cookieStore.get('token')?.value;
-    let initialCart = [];
+    const userCookie = cookieStore.get('user')?.value;
 
+    let initialCart = [];
+    let user = null;
+
+    // Ambil data pengguna dari cookie jika ada
+    if (userCookie) {
+        try {
+            user = JSON.parse(userCookie);
+        } catch (error) {
+            console.error("Gagal mem-parsing cookie pengguna:", error);
+            // Hapus cookie yang rusak jika perlu
+            // cookies().delete('user');
+        }
+    }
+
+    // Ambil data keranjang jika pengguna sudah login (ada token)
     if (token) {
         const cartData = await getCart(token);
         if (cartData && cartData.data) {
@@ -21,10 +35,10 @@ export default async function UserLayout({children}) {
     return (
         <div className="flex flex-col min-h-screen bg-slate-50">
             <CartInitializer cart={initialCart}/>
-            <Navbar/>
+            {/* Teruskan data token dan user ke Navbar */}
+            <Navbar user={user} token={token}/>
             <main className="flex-grow">
                 {children}
-                {/* [ADD] Toaster untuk notifikasi, sebaiknya ada di layout */}
                 <Toaster position="top-center" richColors/>
             </main>
             <Footer/>

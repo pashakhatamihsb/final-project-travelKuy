@@ -25,6 +25,7 @@ const nextConfig = {
             'cdn.idntimes.com',
             'via.placeholder.com',
             'images.unsplash.com',
+            'www.freepik.com',
         ],
     },
 };
