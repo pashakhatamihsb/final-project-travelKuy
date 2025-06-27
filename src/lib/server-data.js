@@ -185,3 +185,12 @@ export async function getAllCategories() {
     // Pastikan selalu mengembalikan array
     return result?.data || [];
 }
+
+export async function getBannerDetails(id) {
+    const result = await fetchServerApi(`/banner/${id}`, {authRequired: false});
+    if (result && (result.status === 'OK' || result.status === 'success')) {
+        return result.data;
+    }
+    // Kembalikan null jika banner tidak ditemukan
+    return null;
+}
